@@ -1,0 +1,97 @@
+#! /bin/sh
+# @(#) $Tau: kdc/scripts/docker/entrypoint $
+
+## ------------------------------------------------------------------------- ##
+##                          T A U    P R O J E C T                           ##
+## ------------------------------------------------------------------------- ##
+##                                                                           ##
+##  Licensed under the Apache License, Version 2.0 (the "License");          ##
+##  you may not use this file except in compliance with the License.         ##
+##                                                                           ##
+##  You may obtain a copy of the License at:                                 ##
+##                                                                           ##
+##      http://www.apache.org/licenses/LICENSE-2.0                           ##
+##                                                                           ##
+##  Unless required by applicable law or agreed to in writing, software      ##
+##  distributed under the License is distributed on an "AS-IS" BASIS,        ##
+##  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. ##
+##  See the License for the specific language governing permissions and      ##
+##  limitations under the License.                                           ##
+##                                                                           ##
+## ------------------------------------------------------------------------- ##
+
+REALM="${REALM:-EXAMPLE.COM}"
+MASTER_ENABLED="${MASTER_ENABLED:-yes}"
+bootstrap=no
+self="kdc[${REALM}]"
+
+set -e
+
+rm -f /etc/krb5.conf
+sed \
+	-e "s!@REALM@!${REALM}!g" \
+	 < /app/etc/krb5.conf.in > /etc/krb5.conf
+
+
+if ! test -d /app/db/$REALM ; then
+	printf "%s: Creating new realm %s (use docker run -e REALM=MYREALM to change)\n" "$self" "$REALM" >&2
+	bootstrap=yes
+	mkdir /app/db/$REALM
+	chmod 700 /app/db/$REALM
+	sed \
+		-e "s!@REALM@!${REALM}!g" \
+		 < /app/etc/kdc.conf.in > /app/db/$REALM/kdc.conf
+else
+	if ! test -f /app/db/$REALM/realm ; then
+		printf "%s: /app/db/%s exists but is not a valid realm database; aborting.\n" "$self" "$REALM" >&2
+		exit 100
+	fi
+fi
+
+rm -f /etc/heimdal-kdc/kdc.conf
+ln -s /app/db/$REALM/kdc.conf /etc/heimdal-kdc/kdc.conf
+if test -e /var/lib/heimdal-kdc ; then
+	mv  /var/lib/heimdal-kdc /var/lib/heimdal-kdc.dist
+fi
+ln -s /app/db/$REALM /var/lib/heimdal-kdc
+
+if test $bootstrap = yes ; then
+	printf "%s: Generating realm master key\n" "$self" >&2
+	kstash --random-key  --key-file=/app/db/$REALM/m-key
+	printf "%s: Initialising realm database\n" "$self" >&2
+	kadmin -l init --realm-max-ticket-life=unlimited --realm-max-renewable-life=unlimited "$REALM"
+	newpw=$(pwgen -C 4 4 | sed -e 's! !-!g' -e 's!-$!!')
+	printf "%s: Adding admin/admin@%s; password will be stored in /app/db/%s/admin-pw\n" "$self" "$REALM" "$REALM"
+	rm -f /app/db/$REALM/admin-pw
+	touch /app/db/$REALM/admin-pw
+	chmod 600 /app/db/$REALM/admin-pw
+	echo "${newpw}" > /app/db/$REALM/admin-pw
+	kadmin -l add -p "${newpw}" --use-defaults "admin/admin@${REALM}"
+	echo 'admin/admin all' > /app/db/$REALM/kadmind.acl
+	echo "${REALM}" >/app/db/$REALM/realm
+fi
+
+if ! test -f /app/db/$REALM/kadmind.acl ; then
+	printf "%s: Warning: Remote administration is not possible: /app/db/%s/kadmind.acl is missing\n" "$self" "$REALM" >&2
+fi
+
+case "$1" in
+shell)
+	exec /bin/sh
+	;;
+run)
+	/etc/init.d/openbsd-inetd start
+	/etc/init.d/heimdal-kdc start
+	printf "%s: KDC started\n" "$self" >&2
+	sleep 1
+	tail -f /var/log/heimdal-kdc.log
+	;;
+kadmin)
+	printf "%s: entering interactive local kadmin session" "$self" >&2
+	kadmin -l
+	;;
+*)
+	echo "Usage: $0 shell | run | kadmin" >&2
+	exit 255
+esac
+
