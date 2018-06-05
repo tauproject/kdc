@@ -49,12 +49,15 @@ shell: container
 	@printf "\n" >&2
 	@printf "Launching a shell within %s\n\n" '$(IMAGENAME)' >&2
 	@printf "NOTE: Changes made within the container will not be saved.\n\n" >&2
-	@printf "Type 'exit' to shut down the container." >&2
+	@printf "Type 'exit' to shut down the container.\n" >&2
 	@printf "\n" >&2
 	$(DOCKER) run $(DOCKERRUNFLAGS) $(IMAGENAME) shell
 
 kadmin: container
 	$(DOCKER) run $(DOCKERRUNFLAGS) $(IMAGENAME) kadmin
+
+check: container
+	$(DOCKER) run $(DOCKERRUNFLAGS) $(IMAGENAME) selftest
 
 else
 
