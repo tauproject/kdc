@@ -29,6 +29,7 @@ fi
 autoreconf -fi
 ./configure
 make
+make check
 
 if ! test x"$DOCKER_USERNAME" = x"" ; then
 	make push
