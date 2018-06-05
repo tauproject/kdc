@@ -19,11 +19,15 @@
 ##                                                                           ##
 ## ------------------------------------------------------------------------- ##
 
-EXTRA_DIST = Dockerfile inetd.conf kdc.conf.in krb5.conf.in services
+EXTRA_DIST = Dockerfile inetd.conf kdc.conf.in krb5.conf.in services heimdal-kdc
 
 IMAGE = kdc
 IMAGENAME = $(ORG)/$(IMAGE)
-DOCKERRUNFLAGS = -it -e TERM='$(TERM)' -v$(abs_top_builddir)/data:/app/db
+DOCKERRUNFLAGS = -it \
+	-e TERM='$(TERM)' \
+	-e HOSTNAME='$(HOSTNAME)' \
+	-P \
+	-v$(abs_top_builddir)/data:/app/db
 
 if WITH_DOCKER
 

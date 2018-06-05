@@ -21,7 +21,9 @@
 ## ------------------------------------------------------------------------- ##
 
 REALM="${REALM:-EXAMPLE.COM}"
-MASTER_ENABLED="${MASTER_ENABLED:-yes}"
+HOSTNAME="${HOSTNAME:-$(hostname)}"
+KDC_PARAMS="--config-file=/app/db/${REALM}/kdc.conf"
+MASTER_PARAMS="--config-file=/app/db/${REALM}/kdc.conf -r ${REALM} --hostname=${HOSTNAME}"
 bootstrap=no
 self="kdc[${REALM}]"
 
@@ -38,9 +40,6 @@ if ! test -d /app/db/$REALM ; then
 	bootstrap=yes
 	mkdir /app/db/$REALM
 	chmod 700 /app/db/$REALM
-	sed \
-		-e "s!@REALM@!${REALM}!g" \
-		 < /app/etc/kdc.conf.in > /app/db/$REALM/kdc.conf
 else
 	if ! test -f /app/db/$REALM/realm ; then
 		printf "%s: /app/db/%s exists but is not a valid realm database; aborting.\n" "$self" "$REALM" >&2
@@ -48,6 +47,11 @@ else
 	fi
 fi
 
+if ! test -r /app/db/$REALM/kdc.conf ; then
+	sed \
+		-e "s!@REALM@!${REALM}!g" \
+		 < /app/etc/kdc.conf.in > /app/db/$REALM/kdc.conf
+fi
 rm -f /etc/heimdal-kdc/kdc.conf
 ln -s /app/db/$REALM/kdc.conf /etc/heimdal-kdc/kdc.conf
 if test -e /var/lib/heimdal-kdc ; then
@@ -71,9 +75,23 @@ if test $bootstrap = yes ; then
 	echo "${REALM}" >/app/db/$REALM/realm
 fi
 
+if ! test -r /app/db/$REALM/.iprop-configured ; then
+	printf "%s: Adding replication principal iprop/%s@%s\n" "$self" "$HOSTNAME" "$REALM" >&2
+	kadmin -l add --random-key --use-defaults "iprop/${HOSTNAME}@${REALM}"
+	touch /app/db/$REALM/slaves
+	touch /app/db/$REALM/.iprop-configured
+fi
+
 if ! test -f /app/db/$REALM/kadmind.acl ; then
 	printf "%s: Warning: Remote administration is not possible: /app/db/%s/kadmind.acl is missing\n" "$self" "$REALM" >&2
 fi
+
+kadmin -l ext "iprop/${HOSTNAME}@${REALM}"
+
+export KDC_PARAMS
+export MASTER_ENABLED
+export MASTER_PARAMS
+export SLAVE_ENABLED
 
 case "$1" in
 shell)
@@ -83,8 +101,9 @@ run)
 	/etc/init.d/openbsd-inetd start
 	/etc/init.d/heimdal-kdc start
 	printf "%s: KDC started\n" "$self" >&2
-	sleep 1
-	tail -f /var/log/heimdal-kdc.log
+	while true ; do
+		sleep 1
+	done
 	;;
 kadmin)
 	printf "%s: entering interactive local kadmin session" "$self" >&2

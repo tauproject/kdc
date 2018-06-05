@@ -17,7 +17,7 @@ Note that in the examples below, the `kadmin` service is explicitly bound to (IP
 ```
 $ mkdir -p /opt/kerberos/db
 $ docker run \
-    -e REALM=MYREALM \
+    -e REALM=MYREALM -e HOSTNAME=$(hostname) \
     -p 88:88/tcp -p 88:88/udp \
     -p 464:464/udp \
     -p 127.0.0.1:749:749/tcp \
@@ -25,24 +25,31 @@ $ docker run \
     tauproject/kdc:shimmer
 ```
 
-If this is the first time the container has been run with a realm database will be created in `/opt/kerberos/db/MYREALM` (in this example). An `admin/admin@MYREALM` principal will be created and granted access to use  `kadmin`; the password for this principal is written to `/opt/kerberos/db/MYREALM/admin-pw`.
+If this is the first time the container has been run with this realm name and database directory, a new realm database will be created in `/opt/kerberos/db/MYREALM` (in this example). An `admin/admin@MYREALM` principal will be created and granted access to use  `kadmin`; the password for this principal is written to `/opt/kerberos/db/MYREALM/admin-pw`.
 
 #### Local `kadmin` mode
 
 ```
 $ docker run -it \
-    -e REALM=MYREALM \
+    -e REALM=MYREALM  -e HOSTNAME=$(hostname) \
     -v /opt/kerberos/db:/app/db \
     tauproject/kdc:shimmer kadmin
 ```
 
 The container will shut down once you exit `kadmin`.
 
+#### Configuring replication
+
+This container can be used as a source for [incremental propagation](https://www.h5l.org/manual/HEAD/info/heimdal/Incremental-propagation.html) to replicas.
+
+1. Create `iprop/<hostname>@MYREALM`principals for each replica, and add their full principal names, one per line, to `/opt/kerberos/db/MYREALM/slaves`.
+2. Add a principal for `iprop/$(hostname)` (which should match the `HOSTNAME`  environment variable set via `docker run`).
+3. Start the container as usual, but publish TCP port 2121 in addition to the usual Kerberos ports (i.e., `docker run -p 2121:2121 ...`)
+
 ### Caveats & limitations
 
 1. Change the `admin/admin` password (or delete the principal altogether) and remove the `admin-pw` file from the realm database directory  once the realm has been created.
 2. There is no provision for importing data from an existing KDC database.
-3. Replication configuration is not currently orchestrated.
 
 ### Copyright
 

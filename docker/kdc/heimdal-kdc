@@ -1,4 +1,5 @@
-# @(#) $Tau: kdc/docker/kdc/Makefile.am $
+#! /bin/sh
+# @(#) $Tau: kdc/docker/kdc/heimdal-kdc $
 
 ## ------------------------------------------------------------------------- ##
 ##                          T A U    P R O J E C T                           ##
@@ -19,28 +20,12 @@
 ##                                                                           ##
 ## ------------------------------------------------------------------------- ##
 
-FROM tauproject/core:shimmer
+KDC_ENABLED=${KDC_ENABLED:-yes}
+KDC_PARAMS="${KDC_PARAMS:---config-file=/var/lib/heimdal-kdc/kdc.conf}"
 
-RUN apt-get install -qq heimdal-servers heimdal-clients heimdal-kdc openssl pwgen
+KPASSWDD_ENABLED=${KPASSWDD_ENABLED:-yes}
 
-RUN mkdir /app /app/config /app/db /app/etc
-COPY docker/kdc/kdc.conf.in /app/etc
-COPY docker/kdc/krb5.conf.in /app/etc
-COPY docker/kdc/services /etc/services
-COPY docker/kdc/inetd.conf /etc/inetd.conf
-COPY docker/kdc/heimdal-kdc /etc/default
-COPY scripts/docker/entrypoint /app/entrypoint
+MASTER_ENABLED=${MASTER_ENABLED:-yes}
 
-VOLUME /app/db
+SLAVE_ENABLED=${SLAVE_ENABLED:-no}
 
-EXPOSE 80/tcp
-EXPOSE 88/tcp
-EXPOSE 88/udp
-EXPOSE 464/udp
-EXPOSE 749/tcp
-EXPOSE 754/tcp
-EXPOSE 2121/tcp
-
-CMD [ "run" ]
-
-ENTRYPOINT [ "/app/entrypoint" ]

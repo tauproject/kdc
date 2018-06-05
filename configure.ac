@@ -32,6 +32,9 @@ AM_MAINTAINER_MODE
 AC_CHECK_PROG([DOCKER],[docker],[docker])
 AM_CONDITIONAL([WITH_DOCKER],[test x"$DOCKER" != x""])
 
+HOSTNAME=$(hostname)
+AC_SUBST([HOSTNAME])
+
 AC_CONFIG_FILES([
 Makefile
 docker/Makefile

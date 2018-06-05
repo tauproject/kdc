@@ -21,7 +21,12 @@
 ## ------------------------------------------------------------------------- ##
 
 [logging]
-kdc = FILE:/var/log/heimdal-kdc.log
+default = FILE:/dev/console
+kdc = FILE:/dev/console
+admin_server = FILE:/dev/console
+kadmind = FILE:/dev/console
+kpasswdd = FILE:/dev/console
+ipropd-master = FILE:/dev/console
 
 [kdc]
 database = {
