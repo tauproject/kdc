@@ -82,12 +82,15 @@ if ! test -r /app/db/$REALM/.iprop-configured ; then
 	touch /app/db/$REALM/.iprop-configured
 fi
 
+printf "%s: Storing replication principal's key (iprop/%s@%s)\n" "$self" "$HOSTNAME" "$REALM" >&2
+kadmin -l ext "iprop/${HOSTNAME}@${REALM}" || true
+
+printf "%s: Storing kadmin principal's key (kadmin/admin@%s)\n" "$self" "$REALM" >&2
+kadmin -l ext "kadmin/admin@${REALM}" || true
+
 if ! test -f /app/db/$REALM/kadmind.acl ; then
 	printf "%s: Warning: Remote administration is not possible: /app/db/%s/kadmind.acl is missing\n" "$self" "$REALM" >&2
 fi
-
-printf "%s: Storing replication principal's key (iprop/%s@%s)\n" "$self" "$HOSTNAME" "$REALM" >&2
-kadmin -l ext "iprop/${HOSTNAME}@${REALM}" || true
 
 export KDC_PARAMS
 export MASTER_ENABLED
@@ -108,7 +111,7 @@ run)
 	;;
 selftest)
 	printf "%s: Performing self-tests\n" "$self" >&2
-	
+
 	/etc/init.d/openbsd-inetd start
 	/etc/init.d/heimdal-kdc start
 	sleep 1
